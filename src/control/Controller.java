@@ -9,15 +9,8 @@ import com.esotericsoftware.kryonet.Connection;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
 
-import DAO.DAOsqlAnswer;
-import DAO.DAOsqlGame;
-import DAO.DAOsqlQuestion;
-import DAO.DataFileUser;
-import model.Answer;
-import model.Game;
-import model.Player;
-import model.Question;
-import model.Score;
+import model.*;
+import DAO.*;
 
 public class Controller {
 
@@ -42,11 +35,13 @@ public class Controller {
 
 	public Controller() {
 		this.myConfiguration = new Configuration();
+		
 		this.leDAOUser = new DataFileUser(this);
 		this.leStubAnswer = new DAOsqlAnswer(this);
 		this.leStubQuestion = new DAOsqlQuestion(this);
 		this.leStubGame = new DAOsqlGame(this);
 		this.laGame = new Game(0, null, null, null, null, null);
+		
 		this.lesGames = new ArrayList<Game>();
 		
 		try {
@@ -63,6 +58,7 @@ public class Controller {
 			kryo.register(Question.class);
 			kryo.register(Answer.class);
 			kryo.register(Integer.class);
+			kryo.register(Score.class);
 			
 			System.out.println("Connecté");
 			server.addListener(new Listener() {
@@ -113,9 +109,27 @@ public class Controller {
 							server.sendToTCP(connection.getID(), laGame);
 							CreateNewGame();
 							break;
+						case "multiplayer":
+							
+							break;
 						default:
 							break;
 						}
+					}else if (object instanceof Score) {
+						Score leScore = (Score) object;
+						for (Game game : lesGames) {
+							System.out.println(leScore.getId_game() == game.getId_game());
+							if (leScore.getId_game() == game.getId_game()) {
+								game.getLesScores().add(leScore);
+								for (Player player : game.getLesPlayers()) {
+									System.out.println(player.getConnectionID() + player.getPseudo());
+									server.sendToTCP(player.getConnectionID(), game.getLesScores());
+								}
+								break;
+							}
+						}
+					}else {
+						System.out.println("l'objet reçu n'est pas connu");
 					}
 				}
 			});
@@ -134,7 +148,7 @@ public class Controller {
 		lesScores = new ArrayList<Score>();
 		lesPlayers = new ArrayList<Player>();
 		leStubQuestion.initializeQuestions();
-		laGame = new Game(leStubGame.IdOfTheGame(), null, leStubQuestion.getLesQuestions(), lesPlayers, "en attente",);
+		laGame = new Game(leStubGame.IdOfTheGame(), null, leStubQuestion.getLesQuestions(), lesPlayers, lesScores,"en attente");
 		System.out.println(laGame.getId_game());
 		lesGames.add(laGame);
 	}
