@@ -2,14 +2,15 @@ package DAO;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 
 import control.Controller;
 import model.Game;
 import model.Question;
+import model.Score;
 
 public class DAOsqlGame {
 
@@ -73,5 +74,33 @@ public class DAOsqlGame {
             e.printStackTrace();
         }
     }
+    
+    public void InsertScore(ArrayList<Score> lesScores) throws SQLException {
+        String sqlQUERY = "INSERT INTO SCORE VALUES (?, ?, TO_DATE(?, 'YYYY-MM-DD'), TO_TIMESTAMP(?, 'HH24:MI:SS'), TO_TIMESTAMP(?, 'HH24:MI:SS'))";
+        PreparedStatement preparedStatement = connection.prepareStatement(sqlQUERY);
+        System.out.println("avant la boucle foreach");
+        for (Score score : lesScores) {
+            try {
+                preparedStatement.setInt(1, score.getId_game());
+                preparedStatement.setString(2, score.getPseaudo());
+                preparedStatement.setString(3, score.getDate_game());
+                preparedStatement.setString(4, score.getTime_begin());
+                preparedStatement.setString(5, score.getTime_end());
+                System.out.println(preparedStatement);
+                preparedStatement.executeUpdate();
+                
+                sqlQUERY = "UPDATE PLAYER SET TOTAL_POINTS = TOTAL_POINTS + " + score.getPlayer_score() + "where player_pseudo = '" + score.getPseaudo() + "';";
+                preparedStatement = connection.prepareStatement(sqlQUERY);
+                System.out.println(preparedStatement);
+                preparedStatement.executeUpdate();
+            } catch (SQLException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }            
+        }
+    }
+    
+
+
 
 }

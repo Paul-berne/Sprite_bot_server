@@ -1,6 +1,7 @@
 package control;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.ArrayList;
 
@@ -64,6 +65,7 @@ public class Controller {
 			server.addListener(new Listener() {
 				
 				public void received(Connection connection, Object object) {
+				    System.out.println("Objet reçu de type : " + object.getClass().getName());
 					if (object instanceof Player) {
 						lePlayer = (Player) object;
 						switch (lePlayer.getAction()) {
@@ -116,18 +118,28 @@ public class Controller {
 							break;
 						}
 					}else if (object instanceof Score) {
+						int index = 0;
 						Score leScore = (Score) object;
 						for (Game game : lesGames) {
 							System.out.println(leScore.getId_game() == game.getId_game());
 							if (leScore.getId_game() == game.getId_game()) {
-								game.getLesScores().add(leScore);
+								lesGames.get(index).setStatut("terminée");
+								lesGames.get(index).getLesScores().add(leScore);
 								for (Player player : game.getLesPlayers()) {
 									System.out.println(player.getConnectionID() + player.getPseudo());
+									try {
+										leStubGame.InsertScore(lesGames.get(index).getLesScores());
+									} catch (SQLException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
 									server.sendToTCP(player.getConnectionID(), game.getLesScores());
 								}
 								break;
 							}
+							index++;
 						}
+						
 					}else {
 						System.out.println("l'objet reçu n'est pas connu");
 					}
@@ -142,7 +154,7 @@ public class Controller {
     
 	private void CreateNewGame() {
 		if (laGame.getType_game() != null) {
-			//leStubGame.InsertGameBDD();
+			leStubGame.InsertGameBDD();
 		}
 		System.out.println("création partie");
 		lesScores = new ArrayList<Score>();
@@ -185,6 +197,6 @@ public class Controller {
 	public Game getLaGame() {
 		return laGame;
 	}
-	
+
 	
 }
