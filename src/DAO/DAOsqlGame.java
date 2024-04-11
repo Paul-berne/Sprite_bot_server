@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 
 import control.Controller;
 import model.Game;
@@ -76,7 +77,7 @@ public class DAOsqlGame {
     }
     
     public void InsertScore(ArrayList<Score> lesScores) throws SQLException {
-        String sqlQUERY = "INSERT INTO SCORE VALUES (?, ?, TO_DATE(?, 'YYYY-MM-DD'), TO_TIMESTAMP(?, 'HH24:MI:SS'), TO_TIMESTAMP(?, 'HH24:MI:SS'))";
+        String sqlQUERY = "INSERT INTO SCORE VALUES (?, ?, TO_DATE(?, 'YYYY-MM-DD'), TO_TIMESTAMP(?, 'HH24:MI:SS'), TO_TIMESTAMP(?, 'HH24:MI:SS'), ?)";
         PreparedStatement preparedStatement = connection.prepareStatement(sqlQUERY);
         System.out.println("avant la boucle foreach");
         for (Score score : lesScores) {
@@ -86,6 +87,9 @@ public class DAOsqlGame {
                 preparedStatement.setString(3, score.getDate_game());
                 preparedStatement.setString(4, score.getTime_begin());
                 preparedStatement.setString(5, score.getTime_end());
+                //preparedStatement.setInt(6, score.getPlayer_score());
+                preparedStatement.setInt(6, 30);
+
                 System.out.println(preparedStatement);
                 preparedStatement.executeUpdate();
                 

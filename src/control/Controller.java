@@ -1,9 +1,13 @@
 package control;
 
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.ArrayList;
+
+import javax.swing.Timer;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryonet.Connection;
@@ -33,7 +37,12 @@ public class Controller {
 	private ArrayList<Game> lesGames;
 	private ArrayList<Player> lesPlayers;
 	private ArrayList<Score> lesScores;
-
+	private ArrayList<Player> lesPlayersconnecte;
+	
+	public boolean Start_timer = true;
+	private Timer swingTimer;
+	private int theTime = 210;
+	
 	public Controller() {
 		this.myConfiguration = new Configuration();
 		
@@ -74,7 +83,8 @@ public class Controller {
 							System.out.println(connection.getID());
 							try {
 								leDAOUser.VerifyUserExist(lePlayer.getPseudo(), lePlayer.getPassword());
-								server.sendToTCP(connection.getID(), lePlayer);							
+								server.sendToTCP(connection.getID(), lePlayer);	
+								//lesPlayersconnecte.add(lePlayer);
 							} catch (ParseException e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
@@ -83,7 +93,8 @@ public class Controller {
 						case "changepassword" :
 							leDAOUser.ChangePasswordUser(lePlayer.getPseudo(), lePlayer.getPassword());
 							System.out.println("on change le mdp");
-							server.sendToTCP(connection.getID(), true);
+							server.sendToTCP(connection.getID(), lePlayer);
+							lesPlayersconnecte.add(lePlayer);
 							break;
 						default:
 							break;
@@ -112,7 +123,30 @@ public class Controller {
 							CreateNewGame();
 							break;
 						case "multiplayer":
-							
+							lePlayer.setConnectionID(connection.getID());
+							lesPlayers.add(lePlayer);
+							server.sendToTCP(connection.getID(), laGame);
+							for (Player player : laGame.getLesPlayers()) {
+								server.sendToTCP(player.getConnectionID(), laGame.getLesScores());
+								server.sendToTCP(player.getConnectionID(), 240);
+							}
+							break;
+						case "ready" :
+							if (theTime == 0) {
+								swingTimer = new Timer(1000, new ActionListener() {
+									@Override
+									public void actionPerformed(ActionEvent e) {
+										theTime--;
+										if (theTime <= 0) {
+											((Timer)e.getSource()).stop();
+										}
+									}
+								});
+								swingTimer.start();
+								Start_timer = false;
+							}
+							System.out.println(theTime);
+							server.sendToTCP(connection.getID(), theTime);
 							break;
 						default:
 							break;
