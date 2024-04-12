@@ -1,59 +1,67 @@
 package control;
 
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.util.ArrayList;
-
-import javax.swing.Timer;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryonet.Connection;
+import com.esotericsoftware.kryonet.FrameworkMessage.KeepAlive;
 import com.esotericsoftware.kryonet.Listener;
 import com.esotericsoftware.kryonet.Server;
 
-import model.*;
-import DAO.*;
+import DAO.DAOsqlAnswer;
+import DAO.DAOsqlGame;
+import DAO.DAOsqlQuestion;
+import DAO.DataFileUser;
+import model.Answer;
+import model.Game;
+import model.Player;
+import model.Question;
+import model.Score;
 
 public class Controller {
 
 	private Server server;
 	private Kryo kryo;
-	
-	//Control
+
+	// Control
 	private Configuration myConfiguration;
-	
-	//DAO
+
+	// DAO
 	private DataFileUser leDAOUser;
 	private DAOsqlQuestion leStubQuestion;
 	private DAOsqlAnswer leStubAnswer;
 	private DAOsqlGame leStubGame;
-	
-	//model
+
+	// model
 	private Player lePlayer;
 	private Game laGame;
 	private ArrayList<Game> lesGames;
 	private ArrayList<Player> lesPlayers;
 	private ArrayList<Score> lesScores;
 	private ArrayList<Player> lesPlayersconnecte;
-	
+
 	public boolean Start_timer = true;
 	private Timer swingTimer;
-	private int theTime = 210;
 	
+	private final int DEFAULT_TIME = 15;
+	private int theTime = DEFAULT_TIME;
+
 	public Controller() {
 		this.myConfiguration = new Configuration();
-		
+
 		this.leDAOUser = new DataFileUser(this);
 		this.leStubAnswer = new DAOsqlAnswer(this);
 		this.leStubQuestion = new DAOsqlQuestion(this);
 		this.leStubGame = new DAOsqlGame(this);
 		this.laGame = new Game(0, null, null, null, null, null);
-		
+
 		this.lesGames = new ArrayList<Game>();
-		
+
 		try {
 			server = new Server();
 			server.start();
@@ -69,12 +77,13 @@ public class Controller {
 			kryo.register(Answer.class);
 			kryo.register(Integer.class);
 			kryo.register(Score.class);
-			
+
 			System.out.println("Connecté");
 			server.addListener(new Listener() {
-				
+
 				public void received(Connection connection, Object object) {
-				    System.out.println("Objet reçu de type : " + object.getClass().getName());
+					if (!(object instanceof KeepAlive))
+						System.out.println("Objet reçu de type : " + object.getClass().getName());
 					if (object instanceof Player) {
 						lePlayer = (Player) object;
 						switch (lePlayer.getAction()) {
@@ -83,34 +92,46 @@ public class Controller {
 							System.out.println(connection.getID());
 							try {
 								leDAOUser.VerifyUserExist(lePlayer.getPseudo(), lePlayer.getPassword());
-								server.sendToTCP(connection.getID(), lePlayer);	
-								//lesPlayersconnecte.add(lePlayer);
+								server.sendToTCP(connection.getID(), lePlayer);
+								lesPlayersconnecte.add(lePlayer);
 							} catch (ParseException e) {
-								// TODO Auto-generated catch block
 								e.printStackTrace();
 							}
 							break;
-						case "changepassword" :
+						case "changepassword":
 							leDAOUser.ChangePasswordUser(lePlayer.getPseudo(), lePlayer.getPassword());
 							System.out.println("on change le mdp");
 							server.sendToTCP(connection.getID(), lePlayer);
-							lesPlayersconnecte.add(lePlayer);
+							break;
+						case "delete" :
+							int index = 0;
+							Boolean delete = false;
+							for (Player player : lesPlayersconnecte) {
+								if (player.getPseudo().equals(lePlayer.getPseudo())) {
+									System.out.println("supprime le player " + lesPlayersconnecte.get(index).getPseudo());
+									delete = true;
+									break;
+								}
+								index++;
+							}
+							if (delete) {
+								lesPlayersconnecte.remove(index);
+							}
 							break;
 						default:
 							break;
 						}
-						
+
 						/**
-						SampleResponse response = new SampleResponse();
-						response.text = "Salut, je suis le serveur ! " + unPlayer.getPseudo();
-						server.sendToTCP(connection.getID(), response);
-						
-						
-						SampleResponse broadcast = new SampleResponse();
-						broadcast.text = "[Broadcast] " + unPlayer.getPseudo();
-						server.sendToAllTCP(broadcast);
-						**/
-					}else if (object instanceof String) {
+						 * SampleResponse response = new SampleResponse(); response.text = "Salut, je
+						 * suis le serveur ! " + unPlayer.getPseudo();
+						 * server.sendToTCP(connection.getID(), response);
+						 * 
+						 * 
+						 * SampleResponse broadcast = new SampleResponse(); broadcast.text =
+						 * "[Broadcast] " + unPlayer.getPseudo(); server.sendToAllTCP(broadcast);
+						 **/
+					} else if (object instanceof String) {
 						String type_game = object.toString();
 						laGame.setType_game(type_game);
 						switch (type_game) {
@@ -125,33 +146,46 @@ public class Controller {
 						case "multiplayer":
 							lePlayer.setConnectionID(connection.getID());
 							lesPlayers.add(lePlayer);
+							
 							server.sendToTCP(connection.getID(), laGame);
 							for (Player player : laGame.getLesPlayers()) {
 								server.sendToTCP(player.getConnectionID(), laGame.getLesScores());
-								server.sendToTCP(player.getConnectionID(), 240);
+//								server.sendToTCP(player.getConnectionID(), theTime);
 							}
 							break;
-						case "ready" :
-							if (theTime == 0) {
-								swingTimer = new Timer(1000, new ActionListener() {
+						case "ready":
+							if (lesPlayers.size() == 1) {
+								swingTimer = new Timer();
+								swingTimer.schedule(new TimerTask() {
+
 									@Override
-									public void actionPerformed(ActionEvent e) {
+									public void run() {
 										theTime--;
-										if (theTime <= 0) {
-											((Timer)e.getSource()).stop();
+										for (Player player : laGame.getLesPlayers()) {
+											System.out.println(player.getConnectionID() + player.getPseudo());
+											server.sendToTCP(player.getConnectionID(), theTime);
 										}
+										
+										if(theTime == 0) {
+											for (Player player : laGame.getLesPlayers()) {
+												server.sendToTCP(player.getConnectionID(), "start");
+											}
+											theTime = DEFAULT_TIME;
+											//CreateNewGame();
+											cancel();
+										}
+											
 									}
-								});
-								swingTimer.start();
+								}, 0, 1000);
+								
 								Start_timer = false;
 							}
-							System.out.println(theTime);
-							server.sendToTCP(connection.getID(), theTime);
+
 							break;
 						default:
 							break;
 						}
-					}else if (object instanceof Score) {
+					} else if (object instanceof Score) {
 						int index = 0;
 						Score leScore = (Score) object;
 						for (Game game : lesGames) {
@@ -159,6 +193,7 @@ public class Controller {
 							if (leScore.getId_game() == game.getId_game()) {
 								lesGames.get(index).setStatut("terminée");
 								lesGames.get(index).getLesScores().add(leScore);
+								
 								for (Player player : game.getLesPlayers()) {
 									System.out.println(player.getConnectionID() + player.getPseudo());
 									try {
@@ -169,12 +204,15 @@ public class Controller {
 									}
 									server.sendToTCP(player.getConnectionID(), game.getLesScores());
 								}
+								
+								lesPlayers.clear();
+								game.getLesPlayers().clear();
 								break;
 							}
 							index++;
 						}
-						
-					}else {
+
+					} else {
 						System.out.println("l'objet reçu n'est pas connu");
 					}
 				}
@@ -182,10 +220,10 @@ public class Controller {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		
+		lesPlayersconnecte = new ArrayList<Player>();
 		CreateNewGame();
 	}
-    
+
 	private void CreateNewGame() {
 		if (laGame.getType_game() != null) {
 			leStubGame.InsertGameBDD();
@@ -194,18 +232,19 @@ public class Controller {
 		lesScores = new ArrayList<Score>();
 		lesPlayers = new ArrayList<Player>();
 		leStubQuestion.initializeQuestions();
-		laGame = new Game(leStubGame.IdOfTheGame(), null, leStubQuestion.getLesQuestions(), lesPlayers, lesScores,"en attente");
+		laGame = new Game(leStubGame.IdOfTheGame(), null, leStubQuestion.getLesQuestions(), lesPlayers, lesScores,
+				"en attente");
 		System.out.println(laGame.getId_game());
 		lesGames.add(laGame);
 	}
-	
+
 	public Game findGameById(int id) {
-	    for (Game game : lesGames) {
-	        if (game.getId_game() == id) {
-	            return game;
-	        }
-	    }
-	    return null;  
+		for (Game game : lesGames) {
+			if (game.getId_game() == id) {
+				return game;
+			}
+		}
+		return null;
 	}
 
 	public static class SampleRequest {
@@ -215,15 +254,19 @@ public class Controller {
 	public static class SampleResponse {
 		public String text;
 	}
+
 	public Configuration getMyConfiguration() {
-        return myConfiguration;
-    }
+		return myConfiguration;
+	}
+
 	public Player getLePlayer() {
 		return lePlayer;
 	}
+
 	public DAOsqlQuestion getLeStubQuestion() {
 		return leStubQuestion;
 	}
+
 	public DAOsqlAnswer getLeStubAnswer() {
 		return leStubAnswer;
 	}
@@ -232,5 +275,4 @@ public class Controller {
 		return laGame;
 	}
 
-	
 }
