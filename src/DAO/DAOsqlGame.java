@@ -58,8 +58,8 @@ public class DAOsqlGame {
         return result;
     }
     
-    public void InsertGameBDD() {
-        Game InsertGame = myController.getLaGame();
+    public void InsertGameBDD(Game game) {
+        Game InsertGame = game;
         
         // Assurez-vous de terminer la requête SQL avec une parenthèse fermante et un point-virgule
         String sqlQUERY = "INSERT INTO Game VALUES (" + InsertGame.getId_game() + ", '" + InsertGame.getType_game() + "');";
@@ -77,30 +77,33 @@ public class DAOsqlGame {
     }
     
     public void InsertScore(ArrayList<Score> lesScores) throws SQLException {
-        String sqlQUERY = "INSERT INTO SCORE VALUES (?, ?, TO_DATE(?, 'YYYY-MM-DD'), TO_TIMESTAMP(?, 'HH24:MI:SS'), TO_TIMESTAMP(?, 'HH24:MI:SS'), ?)";
-        PreparedStatement preparedStatement = connection.prepareStatement(sqlQUERY);
-        for (Score score : lesScores) {
-            try {
-                preparedStatement.setInt(1, score.getId_game());
-                preparedStatement.setString(2, score.getPseaudo());
-                preparedStatement.setString(3, score.getDate_game());
-                preparedStatement.setString(4, score.getTime_begin());
-                preparedStatement.setString(5, score.getTime_end());
-                //preparedStatement.setInt(6, score.getPlayer_score());
-                preparedStatement.setInt(6, score.getPlayer_score());
+    	String sqlQUERY = "INSERT INTO SCORE VALUES (?, ?, TO_DATE(?, 'YYYY-MM-DD'), TO_TIMESTAMP(?, 'HH24:MI:SS'), TO_TIMESTAMP(?, 'HH24:MI:SS'), ?)";
+    	PreparedStatement insertStatement = connection.prepareStatement(sqlQUERY);
+    	for (Score score : lesScores) {
+    	    System.out.println("boucle " + score.getId_game());
+    	    try {
+    	        insertStatement.setInt(1, score.getId_game());
+    	        insertStatement.setString(2, score.getPseaudo());
+    	        insertStatement.setString(3, score.getDate_game());
+    	        insertStatement.setString(4, score.getTime_begin());
+    	        insertStatement.setString(5, score.getTime_end());
+    	        insertStatement.setInt(6, score.getPlayer_score());
 
-                System.out.println(preparedStatement);
-                preparedStatement.executeUpdate();
-                
-                sqlQUERY = "UPDATE PLAYER SET TOTAL_POINTS = TOTAL_POINTS + " + score.getPlayer_score() + "where player_pseudo = '" + score.getPseaudo() + "';";
-                preparedStatement = connection.prepareStatement(sqlQUERY);
-                preparedStatement.executeUpdate();
-            } catch (SQLException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }            
-        }
+    	        insertStatement.executeUpdate();
+    	        
+    	        sqlQUERY = "UPDATE PLAYER SET TOTAL_POINTS = TOTAL_POINTS + ? where player_pseudo = ?";
+    	        PreparedStatement updateStatement = connection.prepareStatement(sqlQUERY);
+    	        updateStatement.setInt(1, score.getPlayer_score());
+    	        updateStatement.setString(2, score.getPseaudo());
+    	        updateStatement.executeUpdate();
+    	    } catch (SQLException e) {
+    	        // TODO Auto-generated catch block
+    	        e.printStackTrace();
+    	    }            
+    	}
+    	insertStatement.close();
     }
+
     
 
 

@@ -9,6 +9,7 @@ public class Game {
     private ArrayList<Question> lesQuestions;
     private ArrayList<Player> lesPlayers;
     private ArrayList<Score> lesScores;
+    private int sent_score;
     private String Statut;
     
 	public Game(int id_game, String type_game, ArrayList<Question> lesQuestions, ArrayList<Player> lesPlayers,
@@ -19,7 +20,8 @@ public class Game {
 		this.lesQuestions = lesQuestions;
 		this.lesPlayers = lesPlayers;
 		this.lesScores = lesScores;
-		Statut = statut;
+		this.Statut = statut;
+		this.sent_score = 0;
 	}
 
 	public ArrayList<Player> getLesPlayers() {
@@ -68,6 +70,14 @@ public class Game {
 
 	public void setLesScores(ArrayList<Score> lesScores) {
 		this.lesScores = lesScores;
+	}
+
+	public int getSent_score() {
+		return sent_score;
+	}
+
+	public void setSent_score(int sent_score) {
+		this.sent_score = sent_score;
 	}
     
 	

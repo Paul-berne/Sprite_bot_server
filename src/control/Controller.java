@@ -1,8 +1,11 @@
 package control;
 
 import java.io.IOException;
+import java.sql.Date;
 import java.sql.SQLException;
 import java.text.ParseException;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -48,7 +51,9 @@ public class Controller {
 	public boolean Start_timer = true;
 	private Timer swingTimer;
 	
-	private final int DEFAULT_TIME = 15;
+	private int id_game;
+
+	private final int DEFAULT_TIME = 5;
 	private int theTime = DEFAULT_TIME;
 
 	public Controller() {
@@ -93,7 +98,10 @@ public class Controller {
 							try {
 								leDAOUser.VerifyUserExist(lePlayer.getPseudo(), lePlayer.getPassword());
 								server.sendToTCP(connection.getID(), lePlayer);
-								lesPlayersconnecte.add(lePlayer);
+								if (lePlayer.getNomclassement() != null) {
+									lePlayer.setConnectionID(connection.getID());
+									lesPlayersconnecte.add(lePlayer);
+								}
 							} catch (ParseException e) {
 								e.printStackTrace();
 							}
@@ -103,12 +111,12 @@ public class Controller {
 							System.out.println("on change le mdp");
 							server.sendToTCP(connection.getID(), lePlayer);
 							break;
-						case "delete" :
+						case "disconnect":
 							int index = 0;
 							Boolean delete = false;
 							for (Player player : lesPlayersconnecte) {
-								if (player.getPseudo().equals(lePlayer.getPseudo())) {
-									System.out.println("supprime le player " + lesPlayersconnecte.get(index).getPseudo());
+								if (player.getConnectionID() == connection.getID()) {
+									System.out.println("supprime le player " + player.getPseudo());
 									delete = true;
 									break;
 								}
@@ -117,101 +125,187 @@ public class Controller {
 							if (delete) {
 								lesPlayersconnecte.remove(index);
 							}
+							theTime = DEFAULT_TIME;
 							break;
+						case "delete from game":
+							delete = false;
+							index = 1;
+							int index_game = 0;
+							for (Game game : lesGames) {
+								index = 1;
+								System.out.println(game.getStatut());
+								if (game.getStatut().equals("en attente de joueurs")) {
+									for (Player player : game.getLesPlayers()) {
+										if (player.getConnectionID() == connection.getID()) {
+
+											delete = true;
+											break;
+										}
+										index++;
+									}
+								}
+								if (delete) {
+									lesGames.get(index_game).getLesPlayers().remove(index);
+
+									break;
+								}
+								index_game++;
+							}
+							if (delete) {
+								lesGames.get(index_game).getLesPlayers().remove(index);
+								if (lesGames.get(index_game).getLesPlayers().isEmpty()) {
+									swingTimer.cancel();
+									lesGames.remove(index_game);
+								}
+							}
 						default:
 							break;
 						}
 
-						/**
-						 * SampleResponse response = new SampleResponse(); response.text = "Salut, je
-						 * suis le serveur ! " + unPlayer.getPseudo();
-						 * server.sendToTCP(connection.getID(), response);
-						 * 
-						 * 
-						 * SampleResponse broadcast = new SampleResponse(); broadcast.text =
-						 * "[Broadcast] " + unPlayer.getPseudo(); server.sendToAllTCP(broadcast);
-						 **/
+						
 					} else if (object instanceof String) {
 						String type_game = object.toString();
-						laGame.setType_game(type_game);
+						int index;
 						switch (type_game) {
 						case "monoplayer":
-							System.out.println("monoplayer");
-							lePlayer.setConnectionID(connection.getID());
-							lesPlayers.add(lePlayer);
-							laGame.setStatut("en cours");
-							server.sendToTCP(connection.getID(), laGame);
+							laGame.setType_game(type_game);
+							index = 0;
+							for (Game game : lesGames) {
+								if (game.getStatut().equals("en attente")) {
+									System.out.println(game.getId_game()); 
+									for (Player player : lesPlayersconnecte) {
+										if (player.getConnectionID() == connection.getID()) {
+											game.getLesPlayers().add(player);
+											game.setStatut("en cours");
+											server.sendToTCP(player.getConnectionID(), game);
+											break;
+										}
+									}
+									System.out.println("monoplayer");
+									break;
+								}
+								index++;
+							}
+							id_game++;
 							CreateNewGame();
 							break;
 						case "multiplayer":
-							lePlayer.setConnectionID(connection.getID());
-							lesPlayers.add(lePlayer);
-							
-							server.sendToTCP(connection.getID(), laGame);
-							for (Player player : laGame.getLesPlayers()) {
-								server.sendToTCP(player.getConnectionID(), laGame.getLesScores());
-//								server.sendToTCP(player.getConnectionID(), theTime);
+							index = 0;
+							for (Game game : lesGames) {
+								System.out.println(game.getStatut() + game.getType_game());
+								if (game.getStatut().equals("en attente de joueurs")) {
+									for (Player player : lesPlayersconnecte) {
+										if (player.getConnectionID() == connection.getID()) {
+											game.getLesPlayers().add(player);
+											server.sendToTCP(player.getConnectionID(), game);
+											break;
+										}
+									}
+									for (Player player : game.getLesPlayers()) {
+										server.sendToTCP(player.getConnectionID(), game.getLesPlayers());
+									}
+								} else if (game.getStatut().equals("en attente")) {
+									System.out.println("game est en attente");
+									for (Player player : lesPlayersconnecte) {
+										if (player.getConnectionID() == connection.getID()) {
+											game.getLesPlayers().add(player);
+											break;
+										}
+									}
+									game.setStatut("en attente de joueurs");
+									game.setType_game("multiplayer");
+									server.sendToTCP(connection.getID(), game);
+
+									break;
+								}
+								index++;
 							}
+
 							break;
 						case "ready":
-							if (lesPlayers.size() == 1) {
-								swingTimer = new Timer();
-								swingTimer.schedule(new TimerTask() {
+							index = 0;
+							for (Game game : lesGames) {
+								if (game.getStatut().equals("en attente de joueurs")) {
 
-									@Override
-									public void run() {
-										theTime--;
-										for (Player player : laGame.getLesPlayers()) {
-											System.out.println(player.getConnectionID() + player.getPseudo());
-											server.sendToTCP(player.getConnectionID(), theTime);
-										}
-										
-										if(theTime == 0) {
-											for (Player player : laGame.getLesPlayers()) {
-												server.sendToTCP(player.getConnectionID(), "start");
+									if (lesPlayers.size() == 1) {
+										swingTimer = new Timer();
+										swingTimer.schedule(new TimerTask() {
+
+											@Override
+											public void run() {
+												theTime--;
+												for (Player player : game.getLesPlayers()) {
+													System.out.println(player.getConnectionID() + player.getPseudo());
+													server.sendToTCP(player.getConnectionID(), theTime);
+												}
+
+												if (theTime == 0) {
+													for (Player player : game.getLesPlayers()) {
+														server.sendToTCP(player.getConnectionID(), "start");
+													}
+													game.setStatut("En cours");
+													theTime = DEFAULT_TIME;
+													id_game++;
+													CreateNewGame();
+													cancel();
+												}
+
 											}
-											theTime = DEFAULT_TIME;
-											//CreateNewGame();
-											cancel();
-										}
-											
+										}, 0, 1000);
+										
 									}
-								}, 0, 1000);
-								
-								Start_timer = false;
+									break;
+								}
+								index++;
 							}
-
 							break;
 						default:
 							break;
 						}
 					} else if (object instanceof Score) {
 						int index = 0;
+						Boolean delete = false;
 						Score leScore = (Score) object;
 						for (Game game : lesGames) {
 							System.out.println(leScore.getId_game() == game.getId_game());
 							if (leScore.getId_game() == game.getId_game()) {
-								lesGames.get(index).setStatut("terminée");
-								lesGames.get(index).getLesScores().add(leScore);
+								game.getLesScores().add(leScore);
+								game.setSent_score(game.getSent_score() + 1);
+								System.out.println(game.getType_game().equals("multiplayer")); 
 								
-								for (Player player : game.getLesPlayers()) {
-									System.out.println(player.getConnectionID() + player.getPseudo());
+								if (game.getLesPlayers().size() == game.getSent_score()) {
+									leStubGame.InsertGameBDD(game);
+
 									try {
-										leStubGame.InsertScore(lesGames.get(index).getLesScores());
+										leStubGame.InsertScore(game.getLesScores());
 									} catch (SQLException e) {
 										// TODO Auto-generated catch block
 										e.printStackTrace();
 									}
-									server.sendToTCP(player.getConnectionID(), game.getLesScores());
+									
+									for (Player player : game.getLesPlayers()) {
+										System.out.println(player.getConnectionID() + player.getPseudo());
+										server.sendToTCP(player.getConnectionID(), game.getLesScores());
+										if (game.getType_game().equals("multiplayer")) {
+											System.out.println("envoie du finish");
+											server.sendToTCP(player.getConnectionID(), "finish");
+										}
+									}
+									delete = true;
+									break;
+								}else {
+									for (Player player : game.getLesPlayers()) {
+										System.out.println(player.getConnectionID() + player.getPseudo());
+										server.sendToTCP(player.getConnectionID(), game.getLesScores());
+									}
 								}
-								
-								lesPlayers.clear();
-								game.getLesPlayers().clear();
-								break;
-							}
+							} 
 							index++;
-						}
 
+						}
+						if (delete) {
+							lesGames.remove(index);
+						}
 					} else {
 						System.out.println("l'objet reçu n'est pas connu");
 					}
@@ -221,19 +315,33 @@ public class Controller {
 			e.printStackTrace();
 		}
 		lesPlayersconnecte = new ArrayList<Player>();
+		id_game = leStubGame.IdOfTheGame();
 		CreateNewGame();
 	}
 
 	private void CreateNewGame() {
-		if (laGame.getType_game() != null) {
-			leStubGame.InsertGameBDD();
+		/**
+		if (!lesGames.isEmpty()) {
+			for (Game game : lesGames) {
+				if (laGame.getType_game() != null) {
+					leStubGame.InsertGameBDD(game);
+				}
+			}
 		}
+**/
 		System.out.println("création partie");
 		lesScores = new ArrayList<Score>();
+		/**
+		Score leScore = new Score(id_game, "t", Date.valueOf(LocalDate.now()).toString(), 0, LocalTime.now().toString(), null);
+		lesScores.add(leScore);
+		leScore= new Score(id_game, "berne", Date.valueOf(LocalDate.now()).toString(), 0, LocalTime.now().toString(), null);
+		lesScores.add(leScore);
+		**/
 		lesPlayers = new ArrayList<Player>();
 		leStubQuestion.initializeQuestions();
-		laGame = new Game(leStubGame.IdOfTheGame(), null, leStubQuestion.getLesQuestions(), lesPlayers, lesScores,
+		laGame = new Game(id_game, null, leStubQuestion.getLesQuestions(), lesPlayers, lesScores,
 				"en attente");
+		
 		System.out.println(laGame.getId_game());
 		lesGames.add(laGame);
 	}

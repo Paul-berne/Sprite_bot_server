@@ -9,6 +9,16 @@ public class Score {
 	private String time_begin;
 	private String time_end;
 	
+	
+	public Score(int id_game, String pseaudo, String date_game, int player_score, String time_begin, String time_end) {
+		super();
+		this.id_game = id_game;
+		this.pseaudo = pseaudo;
+		this.date_game = date_game;
+		this.player_score = player_score;
+		this.time_begin = time_begin;
+		this.time_end = time_end;
+	}
 
 	public Score() {
 		
