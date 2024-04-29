@@ -75,15 +75,15 @@ public class DAOsqlQuestion {
         Random random = new Random();
         ArrayList<Integer> numerosUtilises = new ArrayList<Integer>();
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 10; i++) {
             int randomNumber;
 
             do {
-                randomNumber = random.nextInt(20) + 1;
+                randomNumber = random.nextInt(60) + 1;
             } while (numerosUtilises.contains(randomNumber));
 
             numerosUtilises.add(randomNumber);
-
+            
             // Charge la question à partir de la base de données
             LireQuestionSQL(randomNumber);    
             myController.getLeStubAnswer().LireAnswerSQL(randomNumber);

@@ -6,7 +6,10 @@ import java.sql.SQLException;
 import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -53,7 +56,7 @@ public class Controller {
 	
 	private int id_game;
 
-	private final int DEFAULT_TIME = 5;
+	private final int DEFAULT_TIME = 15;
 	private int theTime = DEFAULT_TIME;
 
 	public Controller() {
@@ -68,7 +71,7 @@ public class Controller {
 		this.lesGames = new ArrayList<Game>();
 
 		try {
-			server = new Server();
+			server = new Server(5000, 5000);
 			server.start();
 			server.bind(54555, 54777);
 
@@ -93,15 +96,15 @@ public class Controller {
 						lePlayer = (Player) object;
 						switch (lePlayer.getAction()) {
 						case "login":
-							System.out.println(lePlayer.getPseudo());
-							System.out.println(connection.getID());
+							System.out.println(lePlayer.getPseudo() + connection.getID());
 							try {
 								leDAOUser.VerifyUserExist(lePlayer.getPseudo(), lePlayer.getPassword());
-								server.sendToTCP(connection.getID(), lePlayer);
 								if (lePlayer.getNomclassement() != null) {
 									lePlayer.setConnectionID(connection.getID());
 									lesPlayersconnecte.add(lePlayer);
 								}
+								server.sendToTCP(connection.getID(), lePlayer);
+								
 							} catch (ParseException e) {
 								e.printStackTrace();
 							}
@@ -271,8 +274,26 @@ public class Controller {
 							if (leScore.getId_game() == game.getId_game()) {
 								game.getLesScores().add(leScore);
 								game.setSent_score(game.getSent_score() + 1);
-								System.out.println(game.getType_game().equals("multiplayer")); 
 								
+								Collections.sort(lesScores, new Comparator<Score>() {
+								    @Override
+								    public int compare(Score s1, Score s2) {
+								        int scoreComp = Integer.compare(s2.getPlayer_score(), s1.getPlayer_score());
+								        if (scoreComp != 0) {
+								            return scoreComp;
+								        } else {
+								        	LocalTime timeBegins1 = LocalTime.parse(s1.getTime_begin());
+									        LocalTime timeEnds1 = LocalTime.parse(s1.getTime_end());
+									        LocalTime timeBegins2 = LocalTime.parse(s2.getTime_begin());
+									        LocalTime timeEnds2 = LocalTime.parse(s2.getTime_end());
+									        
+									        long diffInSecondss1 = ChronoUnit.SECONDS.between(timeBegins1, timeEnds1);
+									        long diffInSecondss2 = ChronoUnit.SECONDS.between(timeBegins2, timeEnds2);
+
+								            return Long.compare(diffInSecondss1, diffInSecondss2);
+								        }
+								    }
+								});
 								if (game.getLesPlayers().size() == game.getSent_score()) {
 									leStubGame.InsertGameBDD(game);
 
@@ -300,6 +321,7 @@ public class Controller {
 									}
 								}
 							} 
+							
 							index++;
 
 						}
@@ -320,15 +342,6 @@ public class Controller {
 	}
 
 	private void CreateNewGame() {
-		/**
-		if (!lesGames.isEmpty()) {
-			for (Game game : lesGames) {
-				if (laGame.getType_game() != null) {
-					leStubGame.InsertGameBDD(game);
-				}
-			}
-		}
-**/
 		System.out.println("création partie");
 		lesScores = new ArrayList<Score>();
 		/**

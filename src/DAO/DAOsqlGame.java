@@ -80,7 +80,6 @@ public class DAOsqlGame {
     	String sqlQUERY = "INSERT INTO SCORE VALUES (?, ?, TO_DATE(?, 'YYYY-MM-DD'), TO_TIMESTAMP(?, 'HH24:MI:SS'), TO_TIMESTAMP(?, 'HH24:MI:SS'), ?)";
     	PreparedStatement insertStatement = connection.prepareStatement(sqlQUERY);
     	for (Score score : lesScores) {
-    	    System.out.println("boucle " + score.getId_game());
     	    try {
     	        insertStatement.setInt(1, score.getId_game());
     	        insertStatement.setString(2, score.getPseaudo());
