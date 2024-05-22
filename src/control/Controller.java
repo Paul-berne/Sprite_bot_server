@@ -52,7 +52,7 @@ public class Controller {
 	
 	private int id_game;
 
-	private final int DEFAULT_TIME = 60;
+	private final int DEFAULT_TIME = 10;
 	private int theTime = DEFAULT_TIME;
 
 	public Controller() {
@@ -88,7 +88,6 @@ public class Controller {
 				public void received(Connection connection, Object object) {
 					if (!(object instanceof KeepAlive))
 						System.out.println("Objet reçu de type : " + object.getClass().getName());
-					System.out.println("Objet reçu de type : " + object.getClass().getName());
 					if (object instanceof Player) {
 						lePlayer = (Player) object;
 						switch (lePlayer.getAction()) {
@@ -96,15 +95,17 @@ public class Controller {
 							System.out.println(lePlayer.getPseudo() + connection.getID());
 							try {
 								leDAOUser.VerifyUserExist(lePlayer.getPseudo(), lePlayer.getPassword());
-								if (lePlayer.getNomclassement() != null) {
+								if (!lePlayer.getNomclassement().equals("")) {
+									System.out.println(lePlayer.getNomclassement());
 									for (Player player : lesPlayersconnecte) {
 										if (player.getPseudo().equals(lePlayer.getPseudo().toString())) {
-											System.out.println("on change le nom du classement du player");
 											lePlayer.setNomclassement("already connect");
 										}
 									}
+									if(!lePlayer.getNomclassement().equals("already connect")){
 									lePlayer.setConnectionID(connection.getID());
 									lesPlayersconnecte.add(lePlayer);
+									}
 								}
 								server.sendToTCP(connection.getID(), lePlayer);
 								
