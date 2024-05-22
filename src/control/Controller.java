@@ -1,12 +1,8 @@
 package control;
 
 import java.io.IOException;
-import java.sql.Date;
 import java.sql.SQLException;
 import java.text.ParseException;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -71,7 +67,7 @@ public class Controller {
 		this.lesGames = new ArrayList<Game>();
 
 		try {
-			server = new Server(5000, 5000);
+			server = new Server();
 			server.start();
 			server.bind(54555, 54777);
 
@@ -87,11 +83,12 @@ public class Controller {
 			kryo.register(Score.class);
 
 			System.out.println("Connecté");
-			server.addListener(new Listener() {
 
+			server.addListener(new Listener() {
 				public void received(Connection connection, Object object) {
 					if (!(object instanceof KeepAlive))
 						System.out.println("Objet reçu de type : " + object.getClass().getName());
+					System.out.println("Objet reçu de type : " + object.getClass().getName());
 					if (object instanceof Player) {
 						lePlayer = (Player) object;
 						switch (lePlayer.getAction()) {
@@ -100,6 +97,12 @@ public class Controller {
 							try {
 								leDAOUser.VerifyUserExist(lePlayer.getPseudo(), lePlayer.getPassword());
 								if (lePlayer.getNomclassement() != null) {
+									for (Player player : lesPlayersconnecte) {
+										if (player.getPseudo().equals(lePlayer.getPseudo().toString())) {
+											System.out.println("on change le nom du classement du player");
+											lePlayer.setNomclassement("already connect");
+										}
+									}
 									lePlayer.setConnectionID(connection.getID());
 									lesPlayersconnecte.add(lePlayer);
 								}
@@ -128,19 +131,18 @@ public class Controller {
 							if (delete) {
 								lesPlayersconnecte.remove(index);
 							}
-							theTime = DEFAULT_TIME;
 							break;
 						case "delete from game":
 							delete = false;
-							index = 1;
+							index = 0;
 							int index_game = 0;
 							for (Game game : lesGames) {
-								index = 1;
 								System.out.println(game.getStatut());
+								
 								if (game.getStatut().equals("en attente de joueurs")) {
 									for (Player player : game.getLesPlayers()) {
 										if (player.getConnectionID() == connection.getID()) {
-
+											lesGames.get(index_game).getLesPlayers().remove(index);
 											delete = true;
 											break;
 										}
@@ -148,18 +150,21 @@ public class Controller {
 									}
 								}
 								if (delete) {
-									lesGames.get(index_game).getLesPlayers().remove(index);
-
+									if (game.getLesPlayers().size() == 0) {
+										System.out.println("remove de la game");
+										swingTimer.cancel();
+										lesGames.remove(index_game);
+										theTime = DEFAULT_TIME;
+										CreateNewGame();
+									}else {
+										for (int i = 0; i < game.getLesPlayers().size(); i++) {
+											server.sendToTCP(game.getLesPlayers().get(i).getConnectionID(), game.getLesPlayers());
+										}
+									}
 									break;
 								}
+								
 								index_game++;
-							}
-							if (delete) {
-								lesGames.get(index_game).getLesPlayers().remove(index);
-								if (lesGames.get(index_game).getLesPlayers().isEmpty()) {
-									swingTimer.cancel();
-									lesGames.remove(index_game);
-								}
 							}
 						default:
 							break;
@@ -168,11 +173,10 @@ public class Controller {
 						
 					} else if (object instanceof String) {
 						String type_game = object.toString();
-						int index;
 						switch (type_game) {
 						case "monoplayer":
 							laGame.setType_game(type_game);
-							index = 0;
+							int index = 0;
 							for (Game game : lesGames) {
 								if (game.getStatut().equals("en attente")) {
 									System.out.println(game.getId_game()); 
@@ -275,32 +279,14 @@ public class Controller {
 								game.getLesScores().add(leScore);
 								game.setSent_score(game.getSent_score() + 1);
 								
-								Collections.sort(lesScores, new Comparator<Score>() {
-								    @Override
-								    public int compare(Score s1, Score s2) {
-								        int scoreComp = Integer.compare(s2.getPlayer_score(), s1.getPlayer_score());
-								        if (scoreComp != 0) {
-								            return scoreComp;
-								        } else {
-								        	LocalTime timeBegins1 = LocalTime.parse(s1.getTime_begin());
-									        LocalTime timeEnds1 = LocalTime.parse(s1.getTime_end());
-									        LocalTime timeBegins2 = LocalTime.parse(s2.getTime_begin());
-									        LocalTime timeEnds2 = LocalTime.parse(s2.getTime_end());
-									        
-									        long diffInSecondss1 = ChronoUnit.SECONDS.between(timeBegins1, timeEnds1);
-									        long diffInSecondss2 = ChronoUnit.SECONDS.between(timeBegins2, timeEnds2);
-
-								            return Long.compare(diffInSecondss1, diffInSecondss2);
-								        }
-								    }
-								});
+								Collections.sort(game.getLesScores());		
+								
 								if (game.getLesPlayers().size() == game.getSent_score()) {
 									leStubGame.InsertGameBDD(game);
 
 									try {
 										leStubGame.InsertScore(game.getLesScores());
 									} catch (SQLException e) {
-										// TODO Auto-generated catch block
 										e.printStackTrace();
 									}
 									
@@ -323,13 +309,11 @@ public class Controller {
 							} 
 							
 							index++;
-
+							if (delete) {
+								lesGames.remove(index);
+							}
 						}
-						if (delete) {
-							lesGames.remove(index);
-						}
-					} else {
-						System.out.println("l'objet reçu n'est pas connu");
+						
 					}
 				}
 			});
@@ -344,12 +328,6 @@ public class Controller {
 	private void CreateNewGame() {
 		System.out.println("création partie");
 		lesScores = new ArrayList<Score>();
-		/**
-		Score leScore = new Score(id_game, "t", Date.valueOf(LocalDate.now()).toString(), 0, LocalTime.now().toString(), null);
-		lesScores.add(leScore);
-		leScore= new Score(id_game, "berne", Date.valueOf(LocalDate.now()).toString(), 0, LocalTime.now().toString(), null);
-		lesScores.add(leScore);
-		**/
 		lesPlayers = new ArrayList<Player>();
 		leStubQuestion.initializeQuestions();
 		laGame = new Game(id_game, null, leStubQuestion.getLesQuestions(), lesPlayers, lesScores,
@@ -366,14 +344,6 @@ public class Controller {
 			}
 		}
 		return null;
-	}
-
-	public static class SampleRequest {
-		public String text;
-	}
-
-	public static class SampleResponse {
-		public String text;
 	}
 
 	public Configuration getMyConfiguration() {
@@ -396,4 +366,11 @@ public class Controller {
 		return laGame;
 	}
 
+	public static class SampleRequest {
+		public String text;
+	}
+
+	public static class SampleResponse {
+		public String text;
+	}
 }

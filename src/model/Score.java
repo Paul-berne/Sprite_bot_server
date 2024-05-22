@@ -1,6 +1,6 @@
 package model;
 
-public class Score {
+public class Score implements Comparable<Score>{
 	
 	private int id_game;
 	private String pseaudo;
@@ -55,6 +55,12 @@ public class Score {
 	public void addPlayerScore(int Score) {
 		player_score = player_score + Score;
 	}
+	
+	@Override
+    public int compareTo(Score otherScore) {
+        // Compare les player_score
+        return Integer.compare(this.player_score, otherScore.getPlayer_score());
+    }
 	
 }
 
