@@ -52,7 +52,7 @@ public class Controller {
 	
 	private int id_game;
 
-	private final int DEFAULT_TIME = 15;
+	private final int DEFAULT_TIME = 60;
 	private int theTime = DEFAULT_TIME;
 
 	public Controller() {
